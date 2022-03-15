@@ -1,2 +1,3 @@
-# objectness
-Research on AI on the emergence of objectness
+# Objectness
+
+Research on the emergence of objectness from vision models.
