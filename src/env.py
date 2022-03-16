@@ -4,12 +4,35 @@ import torchvision
 from torchvision import transforms
 
 class ImageClassificationEnv():
-    def __init__(self, data_path, m, threshold=0.9, time_diff=1.):
+    def __init__(self, data_path, m,
+                 threshold=0.9,
+                 time_diff=1.,
+                 episode_end='batch'
+        ):
+        '''
+        Image classification as an RL environment.
+
+        params:
+        - m: size of observation given to agent (m x m sized image).
+        - threshold: value that must be surpassed by a class probability
+            for it to be considered an agent's final decision.
+        - time_diff: step of time (needed for acceleration computation).
+        - episode_end: Determines when should an episode end. Options:
+            * 'batch': An episode ends after each image classification.
+            * 'dataset': An episode ends after all images in a dataset
+                iteration are classified.
+            * 'never': A continuous task, i.e. the episode never ends.
+        '''
+
         super(ImageClassificationEnv, self).__init__()
         
-        self.m = m                        # Number of pixels in a side of an image. Hence observations are m x m sized matrices
+        self.m = m
         self.time_diff = float(time_diff)
         self.threshold = threshold
+        self.episode_end = episode_end
+
+        if episode_end not in ['batch', 'dataset', 'never']:
+            raise Exception("Invalid episode_end value '{}'. Available options are 'batch', 'dataset', and 'never'.".format(episode_end))
         
         # Dataset parameters
         self.data = torchvision.datasets.MNIST(data_path, transform=transforms.PILToTensor())
@@ -84,7 +107,8 @@ class ImageClassificationEnv():
         self.prediction += guess * self.time_diff
         self.prediction /= self.prediction.sum()
         
-        if self.prediction.max() >= self.threshold:
+        decided_q = self.prediction.max() >= self.threshold
+        if decided_q:
             if self.prediction.argmax() == self.label[0]:
                 reward = 10
             else:
@@ -96,7 +120,11 @@ class ImageClassificationEnv():
         
         next_state = self.get_view(self.position)
         
-        done = self.sample == None
+        done = False
+        if self.episode_end == 'batch':
+            done = decided_q
+        elif self.episode_end == 'dataset':
+            done = self.sample == None
             
         return next_state, reward, done
         
