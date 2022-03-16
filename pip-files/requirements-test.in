@@ -1,0 +1,4 @@
+# Testing and coverage
+pytest-cov
+
+-r requirements-prod.txt
