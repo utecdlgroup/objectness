@@ -7,7 +7,8 @@ class ImageClassificationEnv():
     def __init__(self, data_path, m,
                  threshold=0.9,
                  time_diff=1.,
-                 episode_end='batch'
+                 episode_end='batch',
+                 action_type='position'
         ):
         '''
         Image classification as an RL environment.
@@ -22,6 +23,14 @@ class ImageClassificationEnv():
             * 'dataset': An episode ends after all images in a dataset
                 iteration are classified.
             * 'never': A continuous task, i.e. the episode never ends.
+        - action_type: Defined what the action taken by the agent
+            represents. Options:
+            * 'position': The action is the actual position the agent
+                wants to place its view at in the plane.
+            * 'velocity': The action is the velocity at which the agent
+                will move its glance over the plane.
+            * 'acceleration': The action is the acceleration of the
+                agent's view on the plane.
         '''
 
         super(ImageClassificationEnv, self).__init__()
@@ -30,9 +39,13 @@ class ImageClassificationEnv():
         self.time_diff = float(time_diff)
         self.threshold = threshold
         self.episode_end = episode_end
+        self.action_type = action_type
 
         if episode_end not in ['batch', 'dataset', 'never']:
             raise Exception("Invalid episode_end value '{}'. Available options are 'batch', 'dataset', and 'never'.".format(episode_end))
+        
+        if action_type not in ['position', 'velocity', 'acceleration']:
+            raise Exception("Invalid action_type value '{}'. Available options are 'position', 'velocity', and 'acceleration'.".format(action_type))
         
         # Dataset parameters
         self.data = torchvision.datasets.MNIST(data_path, transform=transforms.PILToTensor())
@@ -77,7 +90,7 @@ class ImageClassificationEnv():
             [1, 1, 1]
         ])
         
-        self.iter = self.sample = self.position = self.velocities = None
+        self.iter = self.sample = self.position = self.velocity = None
         
         self.reset()
     
@@ -89,19 +102,33 @@ class ImageClassificationEnv():
         self._next_image()
         
         # Have agent state ready
-        self.position = torch.zeros(3)
-        self.velocities = torch.zeros(3)
+        if self.action_type in ['velocity', 'acceleration']:
+            self.position = torch.zeros(3)
+            
+            if self.action_type == 'acceleration':
+                self.velocity = torch.zeros(3)
     
     def step(self, action):
-        accel, guess = action
-        
-        accel = torch.minimum(torch.maximum(accel, self.action_space_box[0]), self.action_space_box[1])
-        
-        self.velocities += accel * self.time_diff
-        self.position += self.velocities * self.time_diff
-        
-        # Bound position to valid area
-        self.position = torch.minimum(torch.maximum(self.position, self.box[0]), self.box[1])
+        move_action, guess = action
+
+        if self.action_type in ['velocity', 'acceleration']:
+            if self.action_type == 'acceleration':
+                accel = move_action
+                accel = torch.minimum(torch.maximum(accel, self.action_space_box[0]), self.action_space_box[1])
+
+                self.velocity += accel * self.time_diff
+                vel = self.velocity
+            else:
+                vel = move_action
+            
+            vel = torch.minimum(torch.maximum(vel, self.action_space_box[0]), self.action_space_box[1])
+
+            self.position += vel * self.time_diff
+            pos = self.position
+        else:
+            pos = move_action
+
+        pos = torch.minimum(torch.maximum(pos, self.box[0]), self.box[1])
         
         
         self.prediction += guess * self.time_diff
@@ -118,7 +145,7 @@ class ImageClassificationEnv():
         else:
             reward = 0
         
-        next_state = self.get_view(self.position)
+        next_state = self.get_view(pos)
         
         done = False
         if self.episode_end == 'batch':
