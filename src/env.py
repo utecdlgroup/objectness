@@ -156,6 +156,12 @@ class ImageClassificationEnv():
         return next_state, reward, done
         
     def get_view(self, pos):
+        # Transform point in action space to point in image space
+        pos -= self.action_space_box[0]
+        pos /= self.action_space_box[1] - self.action_space_box[0]
+        pos *= self.box[1] - self.box[0]
+        pos += self.box[0]
+        
         # Bound point to positioning box
         bounded_pos = torch.minimum(torch.maximum(pos, self.box[0]), self.box[1])
         
