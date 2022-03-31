@@ -2,9 +2,12 @@ import numpy as np
 import torch
 import torchvision
 from torchvision import transforms
+import copy
 
 class ImageClassificationEnv():
-    def __init__(self, data_path, m,
+    def __init__(self,
+                 data_path,
+                 m,
                  threshold=0.9,
                  time_diff=1.,
                  episode_end='batch',
@@ -14,6 +17,7 @@ class ImageClassificationEnv():
         Image classification as an RL environment.
 
         params:
+        - data_path: location of data
         - m: size of observation given to agent (m x m sized image).
         - threshold: value that must be surpassed by a class probability
             for it to be considered an agent's final decision.
@@ -90,7 +94,7 @@ class ImageClassificationEnv():
             [1, 1, 1]
         ])
         
-        self.iter = self.sample = self.position = self.velocity = None
+        self.iter = self.sample = self.position = self.velocity = self.acceleration = None
         
         self.reset()
     
@@ -102,33 +106,32 @@ class ImageClassificationEnv():
         self._next_image()
         
         # Have agent state ready
-        if self.action_type in ['velocity', 'acceleration']:
-            self.position = torch.zeros(3)
-            
-            if self.action_type == 'acceleration':
-                self.velocity = torch.zeros(3)
+        self.position = torch.zeros(3)
+        self.velocity = torch.zeros(3)
+        self.acceleration = torch.zeros(3)
     
     def step(self, action):
         move_action, guess = action
 
-        if self.action_type in ['velocity', 'acceleration']:
-            if self.action_type == 'acceleration':
-                accel = move_action
-                accel = torch.minimum(torch.maximum(accel, self.action_space_box[0]), self.action_space_box[1])
-
-                self.velocity += accel * self.time_diff
-                vel = self.velocity
-            else:
-                vel = move_action
-            
-            vel = torch.minimum(torch.maximum(vel, self.action_space_box[0]), self.action_space_box[1])
-
-            self.position += vel * self.time_diff
-            pos = self.position
-        else:
-            pos = move_action
-
-        pos = torch.minimum(torch.maximum(pos, self.box[0]), self.box[1])
+        if self.action_type == 'position':
+            self.position = move_action
+        elif self.action_type == 'velocity':
+            self.velocity = move_action
+        elif self.action_type == 'acceleration':
+            self.acceleration = move_action
+        
+        self.acceleration = torch.minimum(torch.maximum(self.acceleration, self.action_space_box[0]), self.action_space_box[1])
+        self.velocity += self.acceleration * self.time_diff
+        
+        self.velocity = torch.minimum(torch.maximum(self.velocity, self.action_space_box[0]), self.action_space_box[1])
+        self.position += self.velocity * self.time_diff
+        
+        cropped_position = torch.minimum(torch.maximum(self.position, self.box[0]), self.box[1])
+        
+        if not torch.all(cropped_position - self.position == 0, axis=0):
+            self.acceleration = torch.zeros(3)
+            self.velocity = torch.zeros(3)
+            self.position = cropped_position
         
         
         self.prediction += guess * self.time_diff
@@ -145,7 +148,7 @@ class ImageClassificationEnv():
         else:
             reward = 0
         
-        next_state = self.get_view(pos)
+        next_state = self.get_view(self.position)
         
         done = False
         if self.episode_end == 'batch':
@@ -156,6 +159,8 @@ class ImageClassificationEnv():
         return next_state, reward, done
         
     def get_view(self, pos):
+        pos = copy.deepcopy(pos)
+        
         # Transform point in action space to point in image space
         pos -= self.action_space_box[0]
         pos /= self.action_space_box[1] - self.action_space_box[0]
