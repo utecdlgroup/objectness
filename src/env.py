@@ -95,12 +95,16 @@ class ImageClassificationEnv():
         ])
         
         self.iter = self.sample = self.position = self.velocity = self.acceleration = None
-        
+        self.done = False
+
         self.reset()
     
     
     def reset(self):
-        self.iter = iter(self.data_loader)
+        self.done = False
+
+        if self.iter == None or self.episode_end in ['dataset', 'never']:
+            self.iter = iter(self.data_loader)
         
         # Have next observation ready
         self._next_image()
@@ -109,8 +113,15 @@ class ImageClassificationEnv():
         self.position = torch.zeros(3)
         self.velocity = torch.zeros(3)
         self.acceleration = torch.zeros(3)
+
+        state = self.get_view(self.position)
+
+        return state
     
     def step(self, action):
+        if self.done:
+            raise Exception('Cannot take another step on environment that has terminated.')
+
         move_action, guess = action
 
         if self.action_type == 'position':
@@ -143,20 +154,20 @@ class ImageClassificationEnv():
                 reward = 10
             else:
                 reward = -10
-                
+            
             self._next_image()
         else:
             reward = 0
         
         next_state = self.get_view(self.position)
         
-        done = False
+        self.done = False
         if self.episode_end == 'batch':
-            done = decided_q
+            self.done = decided_q
         elif self.episode_end == 'dataset':
-            done = self.sample == None
+            self.done = self.sample == None
             
-        return next_state, reward, done
+        return next_state, reward, self.done
         
     def get_view(self, pos):
         pos = copy.deepcopy(pos)

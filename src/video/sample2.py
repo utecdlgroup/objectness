@@ -13,7 +13,7 @@ parser.add_argument(
     '--action_type', type=str, default='velocity',
     choices=['position', 'velocity', 'acceleration'])
 parser.add_argument(
-    '--action_guess', type=str, default='constant_zero',
+    '--action_guess', type=str, default='random',
     choices=['constant_zero','constant_equal', 'random'])
 
 if __name__ == '__main__':
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     if args.action_type == 'position':
         spread_const = 0.05
     elif args.action_type == 'velocity':
-        spread_const = 0.05
+        spread_const = 0.03
     elif args.action_type == 'acceleration':
         spread_const = 0.005
 
