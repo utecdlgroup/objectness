@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import math
 import torch
 import matplotlib.pyplot as plt
@@ -7,10 +8,36 @@ from moviepy.video.io.bindings import mplfig_to_npimage
 
 from src.env import ImageClassificationEnv
 
-if __name__ == '__main__':
-    data_path = '/Users/cesar.salcedo/Documents/datasets/mnist'
-    env = ImageClassificationEnv(data_path, 12, action_type='acceleration')
+parser = ArgumentParser()
+parser.add_argument(
+    '--action_type', type=str, default='velocity',
+    choices=['position', 'velocity', 'acceleration'])
+parser.add_argument(
+    '--action_guess', type=str, default='constant_zero',
+    choices=['constant_zero','constant_equal', 'random'])
 
+if __name__ == '__main__':
+    args = parser.parse_args()
+
+    data_path = '/Users/cesar.salcedo/Documents/datasets/mnist'
+    env = ImageClassificationEnv(
+        data_path, 12, action_type=args.action_type,
+        episode_end='dataset')
+
+    # Prepare constants
+    if args.action_type == 'position':
+        spread_const = 0.05
+    elif args.action_type == 'velocity':
+        spread_const = 0.05
+    elif args.action_type == 'acceleration':
+        spread_const = 0.005
+
+    if args.action_guess == 'constant':
+        constant_q = True
+    elif args.action_guess == 'random':
+        constant_q = False
+
+    # Prepare for animation
     fig, ax = plt.subplots()
 
     duration = 6
@@ -19,15 +46,17 @@ if __name__ == '__main__':
     rewards = []
 
     def make_frame(t):
-        accel = torch.randn(3) * 0.05
-        # accel = torch.Tensor([0.1 * math.sin(4 * 3.1416 * t / duration) - 0.05, 0.1 * math.cos(4 * 3.1416 * t / duration) - 0.05, math.sin(2 * 3.1416 * t / duration) / 2 + 0.5])
-
-        # guess = torch.Tensor([0, 0, 0, 0, 0, 0, 1, 0, 0, 0])
-        # guess = torch.ones(10) * 0.1
-        guess = torch.randn(10)
-        guess /= guess.sum()
+        move = torch.randn(3) * spread_const
         
-        next_state, reward, done = env.step([accel, guess])
+        if args.action_guess == 'constant_zero':
+            guess = torch.Tensor([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        elif args.action_guess == 'constant_equal':
+            guess = torch.ones(10) * 0.1
+        elif args.action_guess == 'random':
+            guess = torch.randn(10)
+            guess /= guess.sum()
+        
+        next_state, reward, done = env.step([move, guess])
         
         rewards.append(reward)
         
@@ -39,7 +68,7 @@ if __name__ == '__main__':
         return mplfig_to_npimage(fig)
 
     animation = VideoClip(make_frame, duration = duration)
-    animation.ipython_display(fps = fps, loop = True, autoplay = True)
+    animation.write_gif('sample2.gif', fps=fps)
 
     print("Rewards:")
     print(rewards)
