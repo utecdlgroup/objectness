@@ -45,3 +45,5 @@ plt.ylabel('Loss')
 plt.xlabel('Timestep')
 plt.savefig('training_loss.png')
 plt.close(fig)
+
+torch.save(model.state_dict(), 'model.pt')
