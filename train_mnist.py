@@ -20,7 +20,9 @@ data_loader = torch.utils.data.DataLoader(
     num_workers=0)
 
 
-model = SimpleConvNet()
+model = SimpleConvNet(16, 1, 32, 10)
+
+print(model)
 
 optimizer = optim.Adam(model.parameters())
 criterion = nn.CrossEntropyLoss()
