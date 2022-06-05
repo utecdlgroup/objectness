@@ -4,13 +4,15 @@ import numpy as np
 from tqdm import tqdm
 
 from src.env import ImageClassificationEnv
-from src.model import AgentPolicyModel, Reinforce
+from src.model import SimpleConvNet, AgentPolicyModel, Reinforce
 
 data_path = '/Users/cesar.salcedo/Documents/datasets/mnist'
 image_size = 16
 
 env = ImageClassificationEnv(data_path, image_size, action_type='position')
-model = AgentPolicyModel(image_size, 1, 16, 128)
+convnet = SimpleConvNet(image_size, 1, 32, 10)
+convnet.load_state_dict(torch.load('model.pt'))
+model = AgentPolicyModel(image_size, 1, 32, 10, feature_extractor=convnet)
 agent = Reinforce(model)
 
 gamma = 0.99
@@ -36,7 +38,11 @@ def train(agent, optimizer):
 episodes = 60000
 max_timesteps = 2000
 
-optimizer = optim.Adam(agent.parameters(), lr=0.005)
+optimizer = optim.Adam(
+    list(model.move_mean.parameters())
+    + list(model.move_std.parameters())
+    + list(model.guess_mean.parameters())
+    + list(model.guess_std.parameters()))
 
 for episode in tqdm(range(episodes)):
     state = env.reset()
