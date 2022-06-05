@@ -1,3 +1,4 @@
+from pkgutil import get_data
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,18 +7,14 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from src.dataset import load_dataset
 
-data_path = '/Users/cesar.salcedo/Documents/datasets/mnist'
+
+data_path = '/Users/cesar.salcedo/Documents/datasets'
 epochs = 1
+image_size = 16
 
-ts = transforms.Compose([
-    transforms.PILToTensor(),
-    transforms.ConvertImageDtype(torch.float),
-    transforms.Normalize(0., 1.),
-    transforms.Resize(16),
-])
-
-data = torchvision.datasets.MNIST(data_path, transform=ts)
+data = load_dataset(data_path, 'mnist', 16, 1)
 data_loader = torch.utils.data.DataLoader(
     data,
     batch_size=128,
