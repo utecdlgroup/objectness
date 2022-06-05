@@ -68,7 +68,7 @@ class AgentPolicyModel(nn.Module):
     
     def forward(self, state):
         b_size = state.size(0)
-        z = self.base(state).reshape(b_size, self.nz)
+        z = self.base(state).reshape(b_size, -1)
         
         move = (self.move_mean(z), self.move_std(z))
         guess = (self.guess_mean(z), self.guess_std(z))
@@ -111,7 +111,7 @@ class Reinforce(nn.Module):
         guess = pdguess.sample()
 #         print("guess prev:", guess)
         guess_log_prob = pdguess.log_prob(guess).sum()
-        guess = nn.Softmax()(guess)
+        guess = nn.Softmax(dim=1)(guess)
 #         print("guess:", guess)
         
         

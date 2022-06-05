@@ -71,7 +71,7 @@ class ImageClassificationEnv():
         self.data_loader = torch.utils.data.DataLoader(self.data,
                                                        batch_size=1,
                                                        shuffle=True,
-                                                       num_workers=2)
+                                                       num_workers=0)
         
         # Note: Padding taken into account
         self.w = 3 * w

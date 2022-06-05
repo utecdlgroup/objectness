@@ -1,11 +1,12 @@
 import torch
 import torch.optim as optim
 import numpy as np
+from tqdm import tqdm
 
 from src.env import ImageClassificationEnv
 from src.model import AgentPolicyModel, Reinforce
 
-data_path = '/Users/cesar.salcedo/Documents/datasets'
+data_path = '/Users/cesar.salcedo/Documents/datasets/mnist'
 image_size = 16
 
 env = ImageClassificationEnv(data_path, image_size, action_type='position')
@@ -13,7 +14,7 @@ model = AgentPolicyModel(image_size, 1, 16, 128)
 agent = Reinforce(model)
 
 gamma = 0.99
-def train(agent, opimizer):
+def train(agent, optimizer):
     T = len(agent.rewards)
     rets = np.empty(T, dtype=np.float32)
     future_ret = 0.0
@@ -37,13 +38,13 @@ max_timesteps = 2000
 
 optimizer = optim.Adam(agent.parameters(), lr=0.005)
 
-for episode in range(episodes):
+for episode in tqdm(range(episodes)):
     state = env.reset()
     
     for t in range(max_timesteps):
         action = agent.act(state)
-#         print("Action:", action)
-#         print("Threshold:", env.threshold)
+        # print("Action:", action)
+        # print("Threshold:", env.threshold)
         state, reward, done = env.step(action)
         agent.rewards.append(reward)
 #         env.render()
