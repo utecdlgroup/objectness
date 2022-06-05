@@ -1,0 +1,8 @@
+# Automatic validation with dotenv integration for reading .env files
+pydantic[dotenv]
+
+numpy
+
+torch
+
+torchvision

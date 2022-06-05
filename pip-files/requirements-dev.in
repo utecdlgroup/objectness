@@ -1,0 +1,19 @@
+# Formatter
+black
+
+# Linter
+flake8
+
+# Imports automatic sorting tool
+isort
+
+# For a better experience when using the Python shell
+ipython
+
+# For generating movies of events
+moviepy
+
+# For plotting
+matplotlib
+
+-r requirements-test.txt
