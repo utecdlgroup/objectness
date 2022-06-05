@@ -11,13 +11,14 @@ class ImageClassificationEnv():
                  threshold=0.9,
                  time_diff=1.,
                  episode_end='batch',
-                 action_type='position'
+                 action_type='position',
+                 threshold_function='exp'
         ):
         '''
         Image classification as an RL environment.
 
         params:
-        - data_path: location of data
+        - data_path: location of data.
         - m: size of observation given to agent (m x m sized image).
         - threshold: value that must be surpassed by a class probability
             for it to be considered an agent's final decision.
@@ -35,6 +36,12 @@ class ImageClassificationEnv():
                 will move its glance over the plane.
             * 'acceleration': The action is the acceleration of the
                 agent's view on the plane.
+        - threshold_function: determines the value of the threshold
+            over time. Options:
+            * 'constant': The threshold doesn't change.
+            * 'exp': The threshold exponentially approaches either the
+                random probability or the deterministic probability
+                depending on the frequency of decisions.
         '''
 
         super(ImageClassificationEnv, self).__init__()
@@ -44,6 +51,7 @@ class ImageClassificationEnv():
         self.threshold = threshold
         self.episode_end = episode_end
         self.action_type = action_type
+        self.threshold_function = threshold_function
 
         if episode_end not in ['batch', 'dataset', 'never']:
             raise Exception("Invalid episode_end value '{}'. Available options are 'batch', 'dataset', and 'never'.".format(episode_end))
@@ -71,7 +79,7 @@ class ImageClassificationEnv():
         self.data_loader = torch.utils.data.DataLoader(self.data,
                                                        batch_size=1,
                                                        shuffle=True,
-                                                       num_workers=2)
+                                                       num_workers=0)
         
         # Note: Padding taken into account
         self.w = 3 * w
@@ -102,7 +110,7 @@ class ImageClassificationEnv():
     
     def reset(self):
         self.done = False
-
+        
         if self.iter == None or self.episode_end in ['dataset', 'never']:
             self.iter = iter(self.data_loader)
         
@@ -145,17 +153,19 @@ class ImageClassificationEnv():
             self.position = cropped_position
         
         
-        self.prediction += guess * self.time_diff
+        beta = 0.2
+        self.prediction = beta * self.prediction + (1. - beta) * guess
+#         self.prediction += guess * self.time_diff
         self.prediction /= self.prediction.sum()
         
-        decided_q = self.prediction.max() >= self.threshold
+        best_prediction = self.prediction.max()
+#         print("BEST PREDICTION:", best_prediction)
+        decided_q = best_prediction >= self.threshold
         if decided_q:
             if self.prediction.argmax() == self.label[0]:
-                reward = 10
+                reward = 1
             else:
-                reward = -10
-            
-            self._next_image()
+                reward = -1
         else:
             reward = 0
         
@@ -166,6 +176,10 @@ class ImageClassificationEnv():
             self.done = decided_q
         elif self.episode_end == 'dataset':
             self.done = self.sample == None
+        
+        if self.threshold_function == 'exp':
+            target = 1. if decided_q else 0.1
+            self.threshold += 0.01 * (target - self.threshold)
             
         return next_state, reward, self.done
         
@@ -205,4 +219,4 @@ class ImageClassificationEnv():
         self.label = self.sample[1]
         
         # Have agent state ready
-        self.prediction = torch.ones(10) * 0.5
+        self.prediction = torch.ones(10) * 0.1
